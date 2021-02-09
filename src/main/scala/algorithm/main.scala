@@ -101,22 +101,44 @@ object main{
       }
 
       //更新信息素
-      bestPathAccu.value.foreach(map =>{
-        val vs = map._2
-        vs.foreach(v =>{
-          //要更新信息素的边
-          //Timeused不超过limit限制的，才更新
-          if(v._1._2 <= limit) {
-            val edgeUpPher: Array[(VertexId, VertexId)] = v._2.filter(_._2.chosen).map(_._1)//只要边的两端点
-            edgeUpPher.foreach(edgeSelected => {
-              var pher = pherMuMap.getOrElse((edgeSelected._1, edgeSelected._2), pher_min)
-              pher = pher + pher_deta
-              if (pher > pher_max) pher = pher_max
-              pherMuMap.put((edgeSelected._1, edgeSelected._2), pher)
+      algo match {
+        case "common" =>
+          bestPathAccu.value.foreach(map =>{
+            val vs = map._2
+            vs.foreach(v =>{
+              //要更新信息素的边
+              //Timeused不超过limit限制的，才更新
+              if(v._1._2 <= limit) {
+                val edgeUpPher: Array[(VertexId, VertexId)] = v._2.filter(_._2.chosen).map(_._1)//只要选为保留道的边的两端点
+                edgeUpPher.foreach(edgeSelected => {
+                  var pher = pherMuMap.getOrElse((edgeSelected._1, edgeSelected._2), pher_min)
+                  pher = pher + pher_deta
+                  if (pher > pher_max) pher = pher_max
+                  pherMuMap.put((edgeSelected._1, edgeSelected._2), pher)
+                })
+              }
             })
-          }
-        })
-      })
+          })
+        //加强算法，更新信息素与上不同，是整个链路上的边增加
+        case _ =>
+          bestPathAccu.value.foreach(map =>{
+            val vs = map._2
+            vs.foreach(v =>{
+              //要更新信息素的边，整条链路的边更新
+              //Timeused不超过limit限制的，才更新
+              if(v._1._2 <= limit) {
+                val edgeUpPher: Array[(VertexId, VertexId)] = v._2.map(_._1) //只要边的两端点
+                edgeUpPher.foreach(edgeSelected => {
+                  var pher = pherMuMap.getOrElse((edgeSelected._1, edgeSelected._2), pher_min)
+                  pher = pher + pher_deta
+                  if (pher > pher_max) pher = pher_max
+                  pherMuMap.put((edgeSelected._1, edgeSelected._2), pher)
+                })
+              }
+            })
+          })
+      }
+
       //每次迭代的结束时间
       val stopTimeIter = new Date().getTime
       record.time_everyiter = stopTimeIter - startTimeIter

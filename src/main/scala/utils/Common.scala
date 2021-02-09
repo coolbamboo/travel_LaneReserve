@@ -1,7 +1,7 @@
 package utils
 
 import entity._
-import org.apache.spark.graphx.{Graph, VertexId}
+import org.apache.spark.graphx.{Graph, VertexId, VertexRDD}
 import org.apache.spark.rdd.RDD
 
 import java.util.concurrent.ThreadLocalRandom
@@ -14,7 +14,7 @@ object Common {
   val pher_deta = 0.1 //每次增加的信息素
   val bestnum = 1 //每个结束点的最佳路径（miu求和最小）的保留量
 
-  val sigBound = 6 //sigmoid算法中的上限，不要超过6
+  private val sigBound = 6 //sigmoid算法中的上限，不要超过6
 
   type LinkPathInfo = Array[((Long,Long), Ant_EdgeInfo)]
   //type Miusum_LinkPathInfo = (Double, LinkPathInfo)
@@ -178,7 +178,7 @@ object Common {
    */
   def init(initGraph : Graph[VertexInfo, EdgeInfo]): Graph[Ant_VertexInfo, Ant_EdgeInfo] = {
     val init_g = initGraph.mapVertices{(vid, vd) =>
-      Ant_VertexInfo(vd.id, vd.name, vd.v_type, -1L, mutable.Set(), -1L, (Array(0L), 0.0))
+      Ant_VertexInfo(vd.id, vd.name, vd.v_type, -1L, Set(), (Array.empty, 0.0), mutable.Set())
     }.mapEdges{ e =>
       Ant_EdgeInfo(e.attr.id, e.attr.lam, e.attr.TC, e.attr.TS, e.attr.miu, e.attr.pher, chosen = false)
     }
@@ -333,6 +333,49 @@ object Common {
     else base = base * getOneOrMinusone
     val sig = 1/(1 + math.pow(math.E, -1 * base))
     if(p < sig) 1
-    else -1
+    else 0
+  }
+
+  /**
+   * 根据一条链路生成图
+   * @param links 链路数组(顺序)
+   * @param inputG 地图
+   * @return 链路数组对应的图
+   */
+  def linksToGraph(links: Array[VertexId], inputG: Graph[Ant_VertexInfo, Ant_EdgeInfo]) : Graph[Ant_VertexInfo, Ant_EdgeInfo] ={
+    val vidArray = links.reverse
+    val pres : Map[Long,Long] = fromLinksToPreMap(vidArray)
+    val new_g: Graph[Ant_VertexInfo, Ant_EdgeInfo] = vidArray.foldLeft(inputG)((inputG, vid) => {
+      if (pres.getOrElse(vid, -1L) != -1L) { //前置节点可以获得
+        val vd: VertexRDD[Ant_VertexInfo] = inputG.vertices.filter(vd => vd._1 == vid)
+        //替换单点属性（更新全图）
+        val newg = inputG.joinVertices(vd) {
+          (vid, old, newv) =>
+            Ant_VertexInfo(newv.id, newv.name, newv.v_type,
+              pres.getOrElse(vid, -1L), //设preVid
+              newv.backFromId, newv.pathFromPre,newv.sended
+            )
+        }
+        newg
+      } else {
+        inputG
+      }
+    })
+    new_g
+  }
+
+  //获取节点vid对应的前置节点的vid
+  private def fromLinksToPreMap(links : Array[Long]):Map[Long,Long] = {
+    if(links.length > 0){
+      val key = links.head
+      val left = links.tail
+      if(left.length > 0){
+        Map(key -> left.head) ++ fromLinksToPreMap(left)
+      }else{
+        Map.empty
+      }
+    }else{
+      Map.empty
+    }
   }
 }
