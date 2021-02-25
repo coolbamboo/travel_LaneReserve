@@ -198,7 +198,7 @@ class Ant(val graphInit: GraphInit, val inited_g: Graph[Ant_VertexInfo, Ant_Edge
    * 把一条链路Array[vid],按照Graph找出来
    *
    * @param links  Array[VertexId]一条链路(顺序)
-   * @param inputG 输入的地图
+   * @param inputG 输入的地图（原始的，preVid无值）
    */
   private def recordForEndvertex(links: Array[VertexId], inputG: Graph[Ant_VertexInfo, Ant_EdgeInfo]): Unit = {
     val linksG: Graph[Ant_VertexInfo, Ant_EdgeInfo] = linksToGraph(links, inputG)
@@ -228,7 +228,15 @@ class Ant(val graphInit: GraphInit, val inited_g: Graph[Ant_VertexInfo, Ant_Edge
         if (pher > 0.0)
           ctx.sendToDst(Map((srcid, dstid) -> generateOneOrZero(pher)))
       },
-      (a, b) => a ++ b
+      //(a, b) => a ++ b
+      //如果考虑尽量让图链接，减少不连通，可以考虑聚合时每个收到消息的节点至少保证一条边为1
+      (a, b) => {
+        var edgeMap = a ++ b
+        if(!edgeMap.exists(_._2 == 1)){
+          edgeMap = edgeMap + (edgeMap.head._1 -> 1)//把第一条边设为1
+        }
+        edgeMap
+      }
     )
     //选出的边RDD
     val edgeChosenRDD: RDD[((VertexId, VertexId), Int)] = edgeinfoInVertex_g.flatMap(x => x._2).filter(y => y._2 == 1)
@@ -254,22 +262,22 @@ class Ant(val graphInit: GraphInit, val inited_g: Graph[Ant_VertexInfo, Ant_Edge
           change = false
         else change = true
         if (change) {
-          println(s"顶点$vid，属性${(vd.pathFromPre._1.mkString("Array(", ", ", ")"), vd.pathFromPre._2)}，收到消息${(distMsg._1.mkString("Array(", ", ", ")"), distMsg._2, distMsg._3)}")
+          //println(s"顶点$vid，属性${(vd.pathFromPre._1.mkString("Array(", ", ", ")"), vd.pathFromPre._2)}，收到消息${(distMsg._1.mkString("Array(", ", ", ")"), distMsg._2, distMsg._3)}")
           if (vd.pathFromPre._1.nonEmpty) { //已经有值更新进来过
             if (vd.pathFromPre._2 > distMsg._2 + distMsg._3) { //保存的链路TC和更大，则更新成消息中的
-              println(s"顶点$vid，更新后${((distMsg._1 :+ vid).mkString("Array(", ", ", ")"), distMsg._2 + distMsg._3)}")
+              //println(s"顶点$vid，更新后${((distMsg._1 :+ vid).mkString("Array(", ", ", ")"), distMsg._2 + distMsg._3)}")
               Ant_VertexInfo(vd.id, vd.name, vd.v_type,
                 distMsg._1.last,
                 vd.backFromId,
                 (distMsg._1 :+ vid, distMsg._2 + distMsg._3),
                 mutable.Set())//只要更新过消息，sended失效，设为空
             } else { //保留自身的原链路
-              println(s"顶点$vid，没有更新，还是${(vd.pathFromPre._1.mkString("Array(", ", ", ")"), vd.pathFromPre._2)}")
+              //println(s"顶点$vid，没有更新，还是${(vd.pathFromPre._1.mkString("Array(", ", ", ")"), vd.pathFromPre._2)}")
               vd
             }
           } else {
             //第一次更新pathFromPre
-            println(s"顶点$vid，更新后${((distMsg._1 :+ vid).mkString("Array(", ", ", ")"), distMsg._2 + distMsg._3)}")
+            //println(s"顶点$vid，更新后${((distMsg._1 :+ vid).mkString("Array(", ", ", ")"), distMsg._2 + distMsg._3)}")
             Ant_VertexInfo(vd.id, vd.name, vd.v_type,
               distMsg._1.last,
               vd.backFromId,
@@ -278,7 +286,7 @@ class Ant(val graphInit: GraphInit, val inited_g: Graph[Ant_VertexInfo, Ant_Edge
           }
         } else {
           if (vid == start_id) { //起始节点
-            println("初始化起始节点")
+            //println("初始化起始节点")
             Ant_VertexInfo(vd.id, vd.name, vd.v_type, -1L,
               vd.backFromId,
               (Array(vid), 0.0),vd.sended)
@@ -301,11 +309,11 @@ class Ant(val graphInit: GraphInit, val inited_g: Graph[Ant_VertexInfo, Ant_Edge
         }*/
         if (srcVd.pathFromPre._1.isEmpty || srcVd.pathFromPre._1.contains(edgeTriplet.dstId) ||
           srcVd.sended.contains(edgeTriplet.dstId)) { //会形成环,或者向某节点重复发送
-          println(s"顶点${edgeTriplet.srcId} 给 顶点${edgeTriplet.dstId} 发送消息 ${(srcVd.pathFromPre._1.mkString("Array(", ", ", ")"), srcVd.pathFromPre._2)}失败")
+          //println(s"顶点${edgeTriplet.srcId} 给 顶点${edgeTriplet.dstId} 发送消息 ${(srcVd.pathFromPre._1.mkString("Array(", ", ", ")"), srcVd.pathFromPre._2)}失败")
           Iterator.empty
         } else {
           srcVd.sended += edgeTriplet.dstId
-          println(s"顶点${edgeTriplet.srcId} 给 顶点${edgeTriplet.dstId} 发送消息 ${(srcVd.pathFromPre._1.mkString("Array(", ", ", ")"), srcVd.pathFromPre._2, edgeTriplet.attr.TC)}成功")
+          //println(s"顶点${edgeTriplet.srcId} 给 顶点${edgeTriplet.dstId} 发送消息 ${(srcVd.pathFromPre._1.mkString("Array(", ", ", ")"), srcVd.pathFromPre._2, edgeTriplet.attr.TC)}成功")
           Iterator[(VertexId, (Array[Long], Double, Double))](
             (edgeTriplet.dstId,
               (srcVd.pathFromPre._1, srcVd.pathFromPre._2, edgeTriplet.attr.TC)
