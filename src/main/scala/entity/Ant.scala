@@ -145,7 +145,7 @@ class Ant(val graphInit: GraphInit, val inited_g: Graph[Ant_VertexInfo, Ant_Edge
    */
   private def run(start_id: Long, init_g: Graph[Ant_VertexInfo, Ant_EdgeInfo], algoSele: String): Int = {
     algoSele match {
-      case "common" => //经典蚁群
+      case "common" => //经典蚁群GxACO
         val run_code = stepforward(start_id, init_g) match {
           case (-1L, g) => -1
           case (vid, g) =>
@@ -155,7 +155,7 @@ class Ant(val graphInit: GraphInit, val inited_g: Graph[Ant_VertexInfo, Ant_Edge
           case _ => 0
         }
         run_code
-      case _ => //加强蚁群
+      case _ => //加强蚁群pGxACO
         val run_code = popFindPath(start_id, init_g) match {
           case (-1L, g) => -1
           case (vid, g) =>
@@ -212,14 +212,14 @@ class Ant(val graphInit: GraphInit, val inited_g: Graph[Ant_VertexInfo, Ant_Edge
   }
 
   /**
-   * 改进算法：用粒子群的方法选取路径
+   * 改进算法pGxACO：用pregel的方法选取路径
    *
    * @param start_id   开始节点的id，在本算法中，开始节点是一直不变的，区别于蚁群的递归
    * @param inputGraph 输入的原始地图
    * @return 开始节点的id和原始地图（input和output是一样的没变化）
    */
   private def popFindPath(start_id: Long, inputGraph: Graph[Ant_VertexInfo, Ant_EdgeInfo]): (Long, Graph[Ant_VertexInfo, Ant_EdgeInfo]) = {
-    //mapReduce:每条边计算为1或者0，1选中，0未选中。信息素越大越有利于选为1
+    //mapReduce:瘦身，每条边计算为1或者0，1选中，0未选中。信息素越大越有利于选为1
     val edgeinfoInVertex_g: VertexRDD[Map[(VertexId, VertexId), Int]] = inputGraph.aggregateMessages[Map[(VertexId, VertexId), Int]](
       ctx => {
         val srcid = ctx.srcId

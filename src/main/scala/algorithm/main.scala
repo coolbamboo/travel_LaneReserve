@@ -20,7 +20,7 @@ object main{
    * args3：“local”运行，还是其他运行方式
    * args4：通行的总时间（限制时间）
    * args5：N(输入的节点数，这是大图例要用的。只要输入的节点数大于12，就按大图自动生成)
-   * args6: 算法选择，默认是common（普通的蚁群算法），或者结合粒子群的算法
+   * args6: 算法选择，默认是common（普通的蚁群算法实现GxACO），或者pGxACO的算法
    * e.x.
    */
   def main(args: Array[String]): Unit = {
@@ -119,7 +119,7 @@ object main{
               }
             })
           })
-        //加强算法，更新信息素与上不同，是整个链路上的边增加
+        //加强算法pGxACO，更新信息素与上不同，是整个链路上的边增加
         case _ =>
           bestPathAccu.value.foreach(map =>{
             val vs = map._2
